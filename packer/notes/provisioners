@@ -1,0 +1,79 @@
+TEMPLATE PROVISIONERS:
+main doc:
+https://www.packer.io/docs/templates/provisioners.html
+
+The provisioners section contains an array of all the provisioners that Packer should use to
+install and configure software within the running machines before turning them into machine
+images
+
+Provisioners are optional. If you do not specify any within a template, then no software other
+than the defaults will be installed on the resulting machine images. But note that most of the
+value Packer gives you is to produce multiple identical images of pre-configured software.
+
+In a template, the section of provisioner definitions looks like this:
+
+{
+    "provisioners": [
+      // ... one or more provisioner definitions here
+    ]
+}
+
+For each of the definitions, Packer will run the provisioner for each of the configured builds.
+The provisioners will run in the order they are defined within the template.
+
+PROVISIONER DEFINITION:
+This is a JSON object that must contain at least the "type" key, which specifies the name of
+the provisioner to use. Additional keys within the object configure the provisioner itself.
+
+For example, the "shell" provisioner requires a key called "script" that specifies the path to
+a shell script to execute within the machines being created.
+
+For example:
+
+{
+  "type": "shell",
+  "script": "script.sh"
+}
+
+RUN ON SPECIFIC BUILDS:
+The "only" and "except" keys can be used to specify that the provisioner will run ONLY on the
+specified build names, OR on all the build names EXCEPT the specified ones, respectively. For
+example,
+
+{
+    "type": "shell",
+    "script": "script.sh",
+    "only": ["virtualbox-iso"]
+}
+
+^ This provisioner will run only on virtualbox
+
+BUILD-SPECIFIC OVERRIDES:
+Sometimes, one may need different configurations for provisioners depending on the build.
+This can be done with build-specific overrides. For example:
+
+{
+  "type": "shell",
+  "script": "script.sh",
+  "override": {
+    "vmware-iso": {
+      "execute_command": "echo 'password' | sudo -S bash {{.Path}}"
+    }
+  }
+}
+
+^ Here, the override will run the shell comand
+   echo 'password' | sudo -S bash {{.Path}}
+on the builder named "vmware-iso"
+
+PAUSE BEFORE RUNNING:
+You can also pause a period of time before running a provisioner (this might be useful if one
+provisioner reboots the machine before another one can run). To do this, just do the following:
+
+{
+  "type": "shell",
+  "script": "script.sh",
+  "pause_before": "10s"
+}
+
+^ Here, Packer will wait 10 seconds before uploading and executing the shell script.

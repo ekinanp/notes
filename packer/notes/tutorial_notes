@@ -1,0 +1,103 @@
+Templates are the configuration file used to define and build an OS image.
+
+Below is the example.json template for building Amazon EC2 AMI, pasted for convenience
+so various parts of it can be referenced:
+
+{
+  "variables": {
+    "aws_access_key": "",
+    "aws_secret_key": ""
+  },
+  "builders": [{
+    "type": "amazon-ebs",
+    "access_key": "{{user `aws_access_key`}}",
+    "secret_key": "{{user `aws_secret_key`}}",
+    "region": "us-east-1",
+    "source_ami_filter": {
+      "filters": {
+        "virtualization-type": "hvm",
+        "name": "ubuntu/images/*ubuntu-xenial-16.04-amd64-server-*",
+        "root-device-type": "ebs"
+      },
+      "owners": ["099720109477"],
+      "most_recent": true
+    },
+    "instance_type": "t2.micro",
+    "ssh_username": "ubuntu",
+    "ami_name": "packer-example {{timestamp}}"
+  }]
+}
+
+VARIABLES:
+main doc:
+https://www.packer.io/docs/templates/user-variables.html
+
+The "variables" section represents "user variables", which lets you configure your templates
+from the command-line, environment variables, or files. This way, you can parametrize your
+templates to keep secret tokens, environment-specific data, and other types of info. out of
+them, making them portable.
+
+This section is a key/value mapping of <user-variable-name> => <default-value>. Note that if
+the default_value is null, then the user variable is required. User variables can be called
+via. the {{user}} function in the form {{user `variable`}} anywhere except for the "type"
+field.
+
+You can also use environment variables to set user variables via. the "env" function. For example,
+we can do:
+    "aws_secret_key" : "{{env `MY_SECRET`}}"
+to set the "aws_secret_key" default to the environment variable MY_SECRET.
+
+NOTE: User variables are the single source of configurable input to a packer template. So you
+cannot use the env function to set other entries that are not in the "variables" section inside
+the template.
+
+BUILDERS:
+main doc:
+https://www.packer.io/docs/templates/builders.html
+
+A builder is a component of Packer that is responsible for creating a machine and turning that
+machine into an image. There are separate builders for EC2, VMWare, VirtualBox, etc. You can also
+extend the existing list of builders by adding your own builder
+
+The "builders" array is actually an array of "builder definitions", where a "builder definition"
+corresponds to exactly one "build." A "builder definition" is a JSON object that requires at
+least a "type" key, where the "type" is the name of the builder that's used to create a
+machine image. The remaining keys configure the builder itself.
+
+Every build in Packer has a name, which by default is the name of the builder that's being used.
+You can specify a custom name for the build using the "name" key in the builder definition.
+
+COMMUNICATORS:
+main doc:
+https://www.packer.io/docs/templates/communicator.html
+
+These are the mechanism that Packer uses to upload files, execute scripts, etc. with the
+machine that's being created. They are configured in the builder section with three kinds of
+communicators:
+  (1) none -- Means no communicator will be used
+
+  (2) ssh
+
+  (3) winrm
+
+Some builders also have their own custom communicators. For example, the Docker builder has
+a "docker" communicator that uses docker exec and docker cp to execute scripts and copy files. 
+
+To specify a communicator, you can set the "communicator" key within a build. Multiple builds
+can have different communicators. See the docs for more details, including all of the options
+available to you for each communicator that you can specify.
+
+BUILDING THE IMAGE:
+To build the image specified in the example.json template above, just run the following
+command:
+
+  packer build \
+    -var 'aws_access_key=YOUR ACCESS KEY' \
+    -var 'aws_secret_key=YOUR SECRET KEY' \
+    example.json
+
+At the end of running packer build, Packer will output the artifacts that were created as part of the
+build. Artifacts are the results of the build, typically an ID (for an AMI) or a set of files
+(e.g. for a VMware virtual machine).
+
+

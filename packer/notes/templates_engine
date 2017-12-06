@@ -1,0 +1,38 @@
+TEMPLATE ENGINE:
+main doc:
+https://www.packer.io/docs/templates/engine.html
+
+Strings within templates are processed by a common Packer templating engine, so that variables
+and functions can be used to modify a configuration parameter at runtime.
+
+Template syntax has the following conventions:
+  -Template related stuff happens within double curly braces: {{ }}.
+  -Functions are specified directly within the braces, such as {{timestamp}}.
+  -Template variables are prefixed with a period and capitalized (e.g. {{.Variable}})
+
+FUNCTIONS:
+These perform operations on and within strings. There are tons of built-in functions on the
+main documentation page
+
+TEMPLATE VARIABLES:
+These are special variables set by Packer at build time. Some builders, provisioners, and other
+components have template variables that are available only for that component.
+
+As an example, when using the shell builder, template variables are available to customize the
+"execute_command" parameter that determines how Packer will run the shell command. Below is
+an example JSON snippet:
+
+{
+  "provisioners": [
+    {
+      "type": "shell",
+      "execute_command": "{{.Vars}} sudo -E -S bash '{{.Path}}'",
+      "scripts": [
+        "scripts/bootstrap.sh"
+      ]
+    }
+  ]
+}
+
+Here, "{{.Vars}}" and "{{.Path}}" will be replaced with the list of environment variables and the
+path to the script to be executed, respectively.

@@ -1,0 +1,86 @@
+TEMPLATE POST-PROCESSORS:
+main doc:
+https://www.packer.io/docs/templates/post-processors.html
+
+The post-processor section in a template configures any post-processing that will be done to
+images built by the builders. Examples include compressing files, uploading artifacts, etc.
+
+These are optional. If no post-processors are defined within a template, then no post-processing
+will be done to the image. The resulting artifact of a build is just the image outputted by the
+builder.
+
+A section of post-processor definitions look like this:
+
+{
+  "post-processors": [
+    // ... one or more post-processor definitions here
+  ]
+}
+
+For each post-processor definition, Packer will take the result of each of the defined builders
+and send it through the post-processors. You can control what builders post-processors apply to.
+
+POST-PROCESSOR DEFINITION:
+There are three ways to define a post-processor in the post-processors array:
+    (1) Simple definition. This is just a string which represents the name of the post-processor.
+    These are used when no additional configuration is needed for the post-processor. For example,
+      {
+          "post-processors": ["compress"]
+      }
+
+    (2) Detailed definition. This is a JSON object similar to a builder or provisioner definition.
+    It contains a "type" field to denote the type of the post-processor, but may also contain
+    additional config. for the post-processor. This is used when additional config. is needed
+    beyond the type for the post-processor. For example:
+      {
+        "post-processors": [
+          {
+            "type": "compress",
+            "format": "tar.gz"
+          }
+        ]
+      }
+
+    (3) Sequence definition. This is a JSON array comprised of other "simple" or "detailed"
+    definitions. The post-processors here are run in order, the artifact of each feeding into
+    the next and any intermediate artifacts discarded. A sequence definition cannot contain
+    another sequence definition.
+
+    Sequence definitions chain together multiple post-processors. In the example below, the
+    artifact of a build is compressed then uploaded, but the compressed result is not kept.
+      {
+        "post-processors": [
+          [
+            "compress",
+            { "type": "upload", "endpoint": "http://example.com" }
+          ]
+        ]
+      }
+
+   ^ A "sequence" definition is another way of saying that "this post-processor is effectively
+   these post-processors composed together" -- it is a way of achieving function composition.
+   Semantics are the same.
+
+INPUT ARTIFACTS:
+When using post-processors, the input artifact (which may come from a builder or another
+post-processor) is discarded by default when the post-processor runs. The reason is b/c you
+generally do not want to keep intermediate artifacts as the final artifact is being created.
+
+If you want to keep the intermediate artifacts, you can tell Packer to do so by setting the
+"keep_input_artifact" configuration to "true". For example,
+
+{
+  "post-processors": [
+    {
+      "type": "compress",
+      "keep_input_artifact": true
+    }
+  ]
+}
+
+This setting will keep the input artifact to that specific post-processor.
+
+
+RUN ON SPECIFIC BUILDS:
+Like provisioners, the "only" and "except" keys can be used to control which builds the
+post-processor should run on.

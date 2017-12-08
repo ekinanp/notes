@@ -1,0 +1,60 @@
+GETTING STARTED:
+main doc:
+https://www.vmware.com/pdf/fusion_getting_started_40.pdf
+
+WHAT IS A VIRTUAL MACHINE?
+-It is a software file that behaves like a physical computer, i.e. it contains a display,
+a hard disk, one or more processors, memory, and any other hardware that a physical machine
+needs. However, all these components are virtualized.
+
+-Elements of a VM are created by software and stored in files across the computer.
+
+-A "host" is what the VM is running on.
+
+THINGS TO DO WITH VMWARE FUSION:
+There's a lot of things, but the more interesting uses are:
+
+(1) Run Windows and Linux applications on a Mac
+
+(2) Create VMs
+
+(3) Import VMs
+
+(4) Run multiple VMs
+
+Rest of the doc. is just how to use the software itself, which is not relevant insofar as
+high-level details go.
+
+RUN FROM CLI:
+main doc:
+https://www.vmware.com/support/developer/vix-api/vix112_vmrun_command.pdf
+
+Use /Applications/VMware\ Fusion.app/Contents/Library/vmrun
+
+Here are some example commands that you can run:
+
+POWER COMMANDS           PARAMETERS           DESCRIPTION
+--------------           ----------           -----------
+start                    Path to vmx file     Start a VM or Team
+                         [gui|nogui]
+
+stop                     Path to vmx file     Stop a VM or Team
+                         [hard|soft]
+
+reset                    Path to vmx file     Reset a VM or Team
+                         [hard|soft]
+
+GUEST OS COMMANDS        PARAMETERS           DESCRIPTION
+-----------------        ----------           -----------
+runProgramInGuest        Path to vmx file     Run a program in Guest OS
+                         [-noWait]
+                         [-activeWindow]
+                         [-interactive]
+                         Complete-Path-To-Program
+                         [Program arguments]
+
+fileExistsInGuest        Path to vmx file     Check if a file exists in Guest OS
+                         Path to file in guest
+
+directoryExistsInGuest   Path to vmx file     Check if a directory exists in Guest OS
+                         Path to directory in guest

@@ -1,0 +1,31 @@
+main doc:
+https://www.vmware.com/support/ws5/doc/ws_learning_files_in_a_vm.html
+
+VMs are stored on the host computer as a set of files in a directory created by the
+Workstation for that specific virtual machine.
+
+The relevant files are contained here:
+
+.log => <vmname>.log or vmware.log
+
+.nvram => <vmname>.nvram or nvram
+
+.vmdk => <vmname>.vmdk (dk = disk)
+
+.vmsd => <vmname>.vmsd (sd = snapshot data)
+
+.vmsn => <vmname>-Snapshot.vmsn or <vmname>-Snapshot<###>.vmsn
+
+.vmss => <vmname>.vmss (ss = snapshot state)
+
+.vmtm => <vmname>.vmtm (vmtm = vm team)
+
+.vmx => <vmname>.vmx (vmx = vm configuration)
+
+.vmxf => <vmname>.vmxf (vmxf = vm team configuration)
+
+
+EXAMPLES OF EACH FILE:
+See the directory example-files to see what actual VMs look like. Note that VMWare Fusion places
+VM specific info in:
+  /Users/enis.inan/Documents/Virtual\ Machines.localized

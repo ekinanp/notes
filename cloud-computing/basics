@@ -1,0 +1,69 @@
+WHAT IS IT:
+Cloud computing really refers to doing everything you need to do computationally over the
+"Internet", where the term "cloud" = "Internet". The term comes from days when the Internet
+was represented as a puffy white cloud in flowcharts.
+
+-Provision servers when needed without having to set them up. Expensive to do it at a hardware
+level. Cloud computing lets you do these improvements iteratively. Cloud servers do this trick.
+When people start visiting, if you need more computing power, you can immediately scale up
+to what you need (per-need, on demand basis). If traffic dips down, you can release servers easily.
+
+Three primary models:
+
+(1) Private
+Cloud services are provided within the enterprise and behind the org's firewall. Dominated by
+IaaS and then PaaS (Platform as a Service)
+
+(2) Public
+Cloud services are provided on the Internet for other people to access. Dominated by SaaS
+(Software as a Service) and then IaaS (Infrastructure as a Service).
+
+(3) Hybrid
+There are both private and public services
+
+Virtualization is a big reason that cloud computing is popular -- you can provision VMs on demand/
+on need and it will work.
+
+SAAS:
+A service that offers on-demand pay-per-use of an application to users. It is platform independent,
+and you don't need to install anything on your PC. Examples include Office 365, Google Docs, Wolfram
+Alpha, Gmail, etc.
+
+Pros:
+-Accessible from any platform
+-Can work anywhere
+-Good for collaborative working
+
+Cons:
+-Portability & Browser issues
+-Dependent on Internet performance for overall performance
+
+PAAS:
+Mainly a dev. environment, which is a programming language execution environment, OS, web server,
+and a database. Users can build, compile, and run their programs without worrying about the
+underlying infrastructure. Examples include AWS Elastic Beanstalk, Windows Azure, Google app
+engine, heroku, force.com.
+
+Pros:
+-Cost Effective Rapid Dev. (Scalable)
+-Faster Market
+-Easy deployment of web apps
+-Private or public deployment is possible
+
+Cons:
+-Devs are limited to the providers' languages and tools
+-Migration issues, such as the risk of vendor lock-in
+
+IAAS:
+Offers the computing architecture and infrastructure. I.e., offers computing resources in a
+virtual environment so that multiple users can access them. Includes data storage, virtualization,
+servers & networking. Used mainly by SysAdmins. Examples include Amazon EC2, Rackspace
+
+Pros:
+-Cloud provides the infrastructure
+-Enhanced scalability -- supports dynamic workloads
+-Flexible
+
+Cons:
+-Security issues
+-Network & Service delays

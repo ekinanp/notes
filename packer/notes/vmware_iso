@@ -1,0 +1,40 @@
+main doc:
+https://www.packer.io/docs/builders/vmware-iso.html
+
+This builder starts from an ISO file, creates a brand new VMWare VM, installs an OS,
+provisions software within the OS, and then exports that machine to create an image. Best
+for those who want to start from scratch.
+
+The result of this VMware builder is a directory containing all the files necessary to
+run the virtual machine. Here's an example of the basic configuration:
+
+{
+  "type": "vmware-iso",
+  "iso_url": "http://old-releases.ubuntu.com/releases/precise/ubuntu-12.04.2-server-amd64.iso",
+  "iso_checksum": "af5f788aee1b32c4b2634734309cc9e9",
+  "iso_checksum_type": "md5",
+  "ssh_username": "packer",
+  "ssh_password": "packer",
+  "shutdown_command": "shutdown -P now"
+}
+
+Note that the above example will not work b/c there is no preseed file for Ubuntu to self-install.
+A preseed file provides answers to the questions asked during the installation process without you
+having to manually enter the answers while the installation is running. It is a way to automate
+OS installations.
+
+OBSERVATIONS FROM RUNNING VMWARE-ISO BUILD (EXAMPLE IS IN templates/vmware-iso.json):
+(1) Packer will wait until SSH becomes available before doing anything else IF you do not automate
+the OS install.
+
+(2) It will locate the relevant VMWare applicaiton on your computer. For me, this is VMWare
+Fusion
+
+(3) After a certain period of time, if an SSH connection is not established, Packer will timeout
+and fail the build.
+
+(4) If the build fails, Packer will delete all the data used to create the specific VM.
+
+(5) When the build succeeds, Packer will output all the files that make-up that VM, just like
+how it would be done if you created it using VMWare. These include the vmx file, vmdk, nvram,
+etc.

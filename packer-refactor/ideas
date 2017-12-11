@@ -1,0 +1,9 @@
+Here are some of my ideas for refactoring Packer:
+
+(1) The Windows builds adopt the following pattern. If a platform-architecture specific template
+does not exist, then it uses the given template in win-common to build the VM. User variables
+are in their own file.
+
+For our builds, we could do something like this. For example for Debian, all of the platforms use
+the same builder + provisioners. However, it might be cumbersome to have a bunch of debian-common,
+ubuntu-common, fedora-common directories. 

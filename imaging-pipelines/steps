@@ -1,0 +1,149 @@
+The imaging pipeline consists of two pieces: Linux and Windows. These notes focus only on the
+Linux pipeline, since that's what we will mostly be working with.
+
+The pipeline is under the job-group imaging_packer-linux-pipeline_vsphere in the file
+resources/job-groups/imaging-packer.yaml. It is composed of three steps:
+
+(1) {value_stream}_{image_platform}_{image_arch}_{image_type}_{image_config}_packer
+
+where image_config = base.
+
+(2) {value_stream}_{image_platform}_{image_arch}_{image_type}_{image_config}_packer 
+
+where image_config = vsphere.nocm
+
+(3) {value_stream}_{image_platform}_{image_arch}_{image_type}_{image_config}_acceptance_packer
+
+where image_config = vsphere.nocm
+
+Here is what each step does:
+
+(1) {value_stream}_{image_platform}_{image_arch}_{image_type}_{image_config}_packer
+
+This job will build the "templates/{image_platform}/{image_arch}.{image_type}.{image_config}.json" file.
+
+The parameters it takes are the following:
+
+(a) GITHUB_USER
+(b) GITHUB_REF
+(c) GITHUB_REPO <-- Wonder why this is a parameter.
+
+The script itself is composed of two steps:
+
+(a) imaging-init.sh
+
+This sets up the environment that all imaging jobs will use, i.e. the script consists of setting
+a bunch of environment variables. Some interesting features are:
+  (i) PACKER_VM_OUT_DIR
+    The result of the packer build can be set to either local disk, or within the workspace
+    (specifically the template directory itself). Interestingly, local disk is used as default.
+
+  (ii) PACKER_VM_SRC_DIR 
+    This is the source directory containing the relevant VM files for a "composer" builder to
+    use and do additional modifications on (such as the vmx builder for vmware). Interestingly,
+    this one is always on shared disk, i.e. /srv/packer/output.
+
+Some other environment variables are interpolated, such as the following:
+  IMAGE_PLATFORM
+  IMAGE_ARCH
+  IMAGE_TYPE
+  IMAGE_CONFIG
+  PACKER_VCENTER_*
+
+Note that vSphere credentials are obtained from a .fog file.
+
+Some things I'm not certain about:
+  (1) Why use directories outside of what's in the current workspace? It makes cleaning it up
+  harder. For example, PACKER_VM_OUT_DIR and PACKER_VM_SRC_DIR could be something in terms of
+  $WORKSPACE. Idea is that the Jenkins job should only operate on its workspace, nowhere else.
+  In other words, when would it be desirable not to clean up the workspace?
+
+  (2) Makes sense why stuff is interpolated -- once the job is set, everything else is set.
+  But it might not be bad (for documentation purposes) to have the interpolated variables be
+  build parameters so people can immediately see all of the required parameters for the imaging
+  pipeline. We do this for puppet-agent both for the main agent pipeline and for its components.
+
+  (3) Perhaps this script should be renamed to "setup-imaging-environment.sh"? Makes it clear
+  that's what it does to somebody not familiar with the pipelines.
+
+^ Other than that, I like the separation.
+
+(b) imaging-packer.sh
+
+This script pretty much builds Packer. Note that the Windows builds have been refactored to store
+variables in a separate file. Also, some Windows templates use a common template file to build
+their platforms -- these are those that do not have an {image_arch}.{image_type}.{image_config}.json
+file.
+
+^ Note that all the Linux platforms just build from the template.
+
+After the thing is built, they copy the artifacts to shared disk and then clean-up the output
+directory (conditionally).
+
+(2) Same as (1), except it uses the vmware.vsphere.nocm template.
+
+(3) {value_stream}_{image_platform}_{image_arch}_{image_type}_{image_config}_acceptance_packer 
+
+Description is outdated, but what this job will do is take a given VM image and run some acceptance
+tests on one of the components of the puppet-agent to make sure that things work. The bulk of the
+work is in the script imaging-acceptance-tests.sh. Here's what goes on:
+
+(a) Script sets some environment variables using interpolated strings:
+  COMPONENT_NAME
+  SUITE_BRANCH
+  MASTER_HOST
+  MASTER_TEMPLATE
+  SERVER_VERSION
+  SERVER_DOWNLOAD_URL
+^ These should be parameters in the imaging pipeline, that way you can use different components
+if you need to. The job first parses the following information from the variables of a packer
+template file:
+  IMAGE_VERSION (version)
+  BEAKER_PLATFORM (beakerhost)
+  ADMIN_USERNAME (winrm_username, for Windows)
+
+(b) Script clones in the puppet-agent component by parsing this info. from its component.json file.
+It uses SUITE_BRANCH to get the last good SUITE_VERSION and SUITE_COMMIT of the puppet-agent to
+retrieve the component.json file (using a raw curl download).
+
+(c) It then runs beaker by using beaker-hostgenerator to generate the hosts.yaml file, and then
+calling the relevant beaker task to run the tests (of course conditionally casing the
+beaker-hostgenerator calls on the specific hypervisor, we should only be interested in vsphere).
+
+Job also has options to pin to a specific beaker version, beaker-hostgenerator version, and also
+a way to specify the beaker timeout.
+
+^ What is odd is that the acceptance tests also require an install of puppet-agent. So why do we
+enable puppet-agent for multiple platforms if we end up testing the integrity of the image using
+a version of the agent for a previous platform? How was it enabled for, e.g., Mac? It seems like
+this specific imaging pipeline works for platforms that have a previous version with puppet-agent
+enabled.
+
+NOTE: Packer is only used for images that can be used by vmpooler. nspooler is a different world.
+
+OVERALL IMPRESSIONS:
+I think the current steps are good and simple enough. Main suggestions of improvement would be:
+
+(a) Everything that will ever be needed for a job, or produced by a job, should be in that job's
+workspace. If different steps of the pipeline might need a previous jobs' artifact, then we can
+achieve this using the artifact publisher and the copyartifact step. This would also simplify
+the imaging-packer.sh script by removing the conditional for cleaning and copying the directories.
+Might even be good to have the build step produce an artifact that packer builds that could be
+ignored by later jobs.
+
+(b) Job templates file can be made easier to read by constructing a base template and casing the
+templates on that. We do this in puppet-agent, specifically vanagon-pipeline-templates.yaml
+
+(c) The component for acceptance testing should be passed as a build parameter, as well as other
+parameters such as the server version, master host, master template, etc. Note that not all
+components require a master. In fact, out of hiera, facter, pxp-agent, puppet, and puppet-agent,
+only pxp-agent and puppet need a master. So we could probably even remove all the master info.,
+as well as the puppetserver info.We probably don't even need SERVER_DOWNLOAD_URL.
+
+(d) In general, all interpolated variables should be build parameters, with defaults being
+interpolated values. That way, everything that's ever needed to run a job can be documented
+in the "parameters" window.
+
+(e) Remove the parsing of the packer templates file in the imaging-acceptance script and have
+it be a passed-in parameter from a build step in the imaging pipeline. That way, all packer
+specific stuff is contained in one job.

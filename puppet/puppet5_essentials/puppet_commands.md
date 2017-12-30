@@ -11,3 +11,33 @@ puppet resource <resource-type> <resource-name>
 ```
 
 Read the existing system state of the resource with type `<resource-type>` and name/title `<resource-name>`.
+
+```
+puppet <agent|master> --configprint all
+```
+
+Displays all available settings and their values on the master or the agent.
+
+```
+puppet config set
+```
+
+Lets you set specific configuration entries.
+
+```
+puppet cert --list
+```
+
+Shows all of the unsigned certificates that are available.
+
+```
+puppet cert --sign <agent_name>
+```
+
+Signs the certificate for the specified agent.
+
+```
+puppet cert revoke <agent>
+```
+
+Revokes the `<agent>'s` certificate (decommissions it).

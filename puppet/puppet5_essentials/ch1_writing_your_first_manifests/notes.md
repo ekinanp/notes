@@ -350,4 +350,6 @@ Note that the `subscribe` and `notify` metaparameters offer additional semantics
 
 So `subscribe` ~ `require`, `notify` ~ `before`. You can also use the chaining syntax for signaling via. `~>`.
 
-##
+## Examining Puppet core resource types
+
+These are just an overview of the key Puppet resource types. They are not really relevant to the fundamentals here, since one can look up their documentation online. Thus, no notes here.

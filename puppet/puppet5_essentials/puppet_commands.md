@@ -41,3 +41,9 @@ puppet cert revoke <agent>
 ```
 
 Revokes the `<agent>'s` certificate (decommissions it).
+
+```
+puppet module install <module-name>
+```
+
+This installs the module in the active environment.

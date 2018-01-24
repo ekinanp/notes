@@ -193,4 +193,261 @@ end
 ```
 Recall that `munge` just takes the input value for the parameter and transforms it into a more suitable form.
 
+Every resource must have a `name` parameter that is the resource title. You can specify that a different parameter use the resource title. For example,
+```
+newparam(:name) do
+  desc "The name of the device."
+  #isnamevar # → commented because automatically assumed
+end
+```
 
+`isnamevar` indicates that the parameter takes in the value of the resource title. This will be set by default for a parameter with the name `name`.
+
+Along with some other stuff, the custom resource type can be used inside a manifest:
+```
+cacti_device { 'eth0':
+  ensure => present,
+  ip => $::ipaddress,
+  ping_method => 'icmp',
+}
+```
+
+And this code will get compiled into a catalog. However, the agent will produce an error b/c there is no provider available for this resource.
+
+## Adding a provider 
+
+The above section showed how to create a resource type that's ready for action. However, there is no provider to do the actual work of inspecting the system and performing the necessary synchronization. 
+
+The name of the provider should reflect the management approach that it implements. For the Cacti example in the book, the provider relies on the Cacti CLI. For a Package resource, as another example, each package provider has its own `.rb` file, e.g. `yum.rb`, `zypper.rb`, etc.
+
+Here is the skeleton structure (in `packt_cacti/lib/puppet/provider/cacti_device/cli.rb`):
+```
+Puppet::Type.type(:cacti_device).provide(
+  :cli,
+  :parent => Puppet::Provider
+  ) do
+end
+```
+You can see the following:
+* The `type` that the provider acts on is referenced
+* The name of the provider `:cli` is referenced
+* `:parent` indicates the base class of the given provider -- `Puppet::Provider` is the default, which can be overwritten with your own, custom base class.
+
+The `commands` method in providers binds executables to Ruby functions, e.g.:
+```
+commands :php => ‘php’
+commands :add_device => ‘/usr/share/cacti/cli/add_device.php’
+commands :add_graphs => ‘/usr/share/cacti/cli/add_graphs.php’
+commands :rm_device => ‘/usr/share/cacti/cli/remove_device.php’
+```
+
+Declaring commands serves two purposes:
+* You can call the commands through a generated method
+* The provider will mark itself as `valid` only if all the commands are found on the given system.
+
+Note for our example, `php` will not be invoked directly. But it is required to invoke the `.php` scripts. Thus, we include it as a `command` only to validate that it is present on the target system. The rest of the commands are syntatic sugar to declare and reference the relevant commands as ruby functions.
+
+The command methods themselves return the output displayed to the console when running (not sure if it is just `stdout`, or `stdout` mixed with `stderr`).
+
+## Implementing the basic functionality
+
+The basic functionality of the provider can now be implemented in three instance methods. These three methods are the default that the `ensure` property expects to be available (remember that the `ensurable` shortcut was used in the type's code). 
+
+The first method creates a resource if it does not exist yet.
+```
+def create
+  args = []
+  args << "--description=#{resource[:name]}"
+  args << "--ip=#{resource[:ip]}"
+  args << "--ping_method=#{resource[:ping_method]}"
+  add_device(*args)
+end
+```
+
+Note that there is no need to quote parameter values as they would be on the command-line -- Puppet already takes care of this behavior for you.
+
+Here is how to destroy the entity:
+```
+def destroy
+  rm_device("--device-id=#{@property_hash[:id]}")
+end
+```
+
+Note that each resource gets its own provider instance, and all of its munged property and parameter values are contained in its `property_hash` variable.
+
+Here is the final provider method that implements the `ensure` property:
+```
+def exists?
+  self.class.instances.find do |provider|
+    provider.name == resource[:name]
+  end
+end
+```
+
+## Allowing the provider to prefetch existing resources
+
+The `instances` method above implements the prefetching of system resources during provider initialization. It is added to the provider itself. Not all resources are suitable for prefetching (e.g. it would be impractical to do this for files!) so their providers do not have an `instances` method implemented. Here's what the code would look like for Cacti devices:
+```
+def self.instances
+  return @instances ||= add_graphs(“--list-hosts”).
+  split(“\n”).
+  drop(1).
+  collect do |line|
+    fields = line.split(/\t/, 4)
+    Puppet.debug “prefetching cacti_device #{fields[3]}
+    “ +
+    “with ID #{fields[0]}”
+    new(:ensure => :present,
+    :name => fields[3],
+    :id => fields[0])
+  end
+end
+```
+
+Note that we use `||=` so that we only prefetch once (it assigns only if the value is undefined).
+
+We see that the method just returns an instance for each of the resources that are found on the system.
+
+Note that Puppet requires another method to perform proper prefetching. The mass-fetching via. `instances` supplies the agent with a list of *provider instances* found on the system. From the master, however, the agent received a list of *resource type* instances. Puppet, unfortunately, has not yet mapped the resources (type instances) to the providers. The `prefetch` method makes this happen:
+```
+def self.prefetch(resources)
+  instances.each do |provider|
+    if res = resources[provider.name]
+      res.provider = provider
+    end
+  end
+end
+```
+
+^ What we do here is link up the resource type instance's provider to the provider instance itself.
+
+All of the above stuff is really just Ruby-implementation of the concept that `resource type instance => provider instance`.
+
+We can use our new resource type as follows:
+```
+node "agent" {
+  include cacti
+  cacti_device { "Puppet test agent (Debian 7)":
+    ensure => present,
+    ip => $::ipaddress,
+  }
+}
+```
+
+Note that a native type does `not` default `ensure` to `present` -- its value must be explicitly supplied.
+
+## Make the type robust during provisioning
+
+The previous section created the `cacti_device` resource type and a provider for it. However, it is not self-sufficient -- `cacti_device` requires the system to have the `cacti` package installed for it to do its work. To enforce this at the native type level, you can add the following to the `cacti_device` type:
+```
+autorequire :package do
+  catalog.resource(:package, 'cacti')
+end
+```
+
+## Enhancing Puppet's system knowledge through facts
+
+Here is an example of how to create a custom fact that can be used with the `cacti` module. Remember that these belong in the `lib/facter` subtree of a module.
+
+Here's a custom fact, `packt_cacti/lib/facter/cacti_graph_templates.rb` that will work:
+```
+Facter.add(:cacti_graph_templates) do
+  setcode do
+    cmd = ‘/usr/share/cacti/cli/add_graphs.php’
+    Facter::Core::Execution.exec(“#{cmd} --list-graphtemplates”).
+    split(“\n”).
+    drop(1).
+    collect do |line|
+      line.split(/\t/)[1]
+    end
+  end
+end
+```
+
+Note that this created list can be accessed in manifests via. the `$::cacti_graph_templates` variable.
+
+## Refining the interface of your module through custom functions
+
+Frequently, custom functions in Puppet are used for input validation. For example, the `stdlib` module comes with `validate_X` (e.g. `validate_bool`) functions for a lot of basic data types.
+
+For example, here's a routine that validates (and munges) a passed-in IP address to a cacti device (so you can possibly remove it from the type itself):
+
+```
+module Puppet::Parser::Functions
+  require ‘ipaddr’
+  newfunction(:cacti_canonical_ip, :type => :rvalue) do |args|
+    ip = args[0]
+    begin
+      IPAddr.new(ip)
+    rescue ArgumentError
+      raise “#{@resource.ref}: invalid IP address ‘#{ip}’”
+    end
+    ip.downcase
+  end
+end
+```
+
+and an example use-case:
+```
+define packt_cacti::device($ip) {
+  $cli = ‘/usr/share/cacti/cli’
+  $c_ip = cacti_canonical_ip(${ip})
+  $options = “--description=‘${name}’ --ip=‘${c_ip}’”
+  exec { “add-cacti-device-${name}”:
+    command => “${cli}/add_device.php ${options}”,
+    require => Class[cacti],
+  }
+}
+```
+
+Note that this is different for Puppet 4 -- info. about the differences are in Chapter 6.
+
+## Making your module portable across platforms
+
+The `Cacti` module created above is unfortunately specific to the Debian package.
+
+If you want to get it to work for another platform, e.g. RHEL, you might need to do different stuff. One thing is that the `cli_path` variable is different.
+
+You can pre-compute OS-specific parameters via. an additional `params` class, e.g.:
+```
+# …/packt_cacti/manifests/params.pp
+class packt_cacti::params {
+  case $osfamily {
+    ‘Debian’: {
+      $cli_path = ‘/usr/share/cacti/cli’
+    }
+    ‘RedHat’: {
+      $cli_path = ‘/var/lib/cacti/cli’
+    }
+    default: {
+      fail “the cacti module does not yet support the ${osfamily} platform”
+    }
+  }
+}
+```
+
+We can access the variable as follows:
+```
+class packt_cacti::install {
+  include pack_cacti::params
+  file { ‘remove_device.php’:
+    ensure => file,
+    path => “${packt_cacti::params::cli_path}/remove_device.php’,
+    source => ‘puppet:///modules/packt_cacti/cli/remove_device.php’,
+    mode => ‘0755’,
+  }
+}
+```
+
+Notice that the `include pack_cacti::params` statement invokes the computation of the `cli_path` variable, which can then be referenced elsewhere in the `install` class declaration.
+
+If you need additional, run-time calculation of parameters, add more variables to the `params` class.
+
+
+The rest of the chapter talks about The Forge.
+
+## Summary
+
+Puppet development should be done in modules, with each module serving a very specific purpose.
+
+Modules can contain manifests, files, Puppet plugins (custom resource types and providers, parser functions, or facts).
